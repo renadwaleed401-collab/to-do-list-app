@@ -1,0 +1,6 @@
+{
+  "name": "Botanical Kanban Todo Board",
+  "description": "A responsive, modern Kanban-style Todo Board with DummyJSON API integration styled with a warm botanical color palette.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
