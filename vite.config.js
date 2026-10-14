@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    base: process.env.VITE_BASE_PATH || "/to-do-list-app",
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
