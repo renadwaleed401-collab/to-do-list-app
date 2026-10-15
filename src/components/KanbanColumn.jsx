@@ -14,7 +14,8 @@ export default function KanbanColumn({
   draggedTaskId,
   onDragStart,
   onDragEnd,
-  showAllTeam = false
+  showAllTeam = false,
+  users = []
 }) {
   const [isOver, setIsOver] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
@@ -178,6 +179,7 @@ export default function KanbanColumn({
               onDragEnd={onDragEnd}
               isDragging={draggedTaskId === task.id}
               showAllTeam={showAllTeam}
+              users={users}
             />
           ))
         )}

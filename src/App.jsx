@@ -5,17 +5,36 @@ import TaskModal from './components/TaskModal.jsx';
 import DeleteConfirmModal from './components/DeleteConfirmModal.jsx';
 import Toast from './components/Toast.jsx';
 import { COLUMNS } from './constants/palette.js';
-import { PEOPLE } from './data/mockUsers.js';
+import { DEFAULT_USERS, AVATAR_COLORS } from './data/mockUsers.js';
 import { fetchTodosFromApi } from './utils/api.js';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, UserCheck, Layers } from 'lucide-react';
 
-const STORAGE_KEY = 'strawberry_matcha_tasks_v9';
+const STORAGE_KEY = 'strawberry_matcha_tasks_v15';
+const USERS_STORAGE_KEY = 'strawberry_matcha_users_v4';
 
 export default function App() {
+  // Dynamic users state - default to User 1
+  const [users, setUsers] = useState(() => {
+    const saved = localStorage.getItem(USERS_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Sanitize: ensure no legacy mock people names remain
+          const isLegacy = parsed.some(u => /Evelyn|Marcus|Aria|Julian|Chloe/i.test(u.name));
+          if (!isLegacy) return parsed;
+        }
+      } catch (e) {
+        console.error('Error parsing stored users:', e);
+      }
+    }
+    return DEFAULT_USERS;
+  });
+
+  const [activePerson, setActivePerson] = useState(() => users[0] || DEFAULT_USERS[0]);
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activePerson, setActivePerson] = useState(PEOPLE[0]); // default to Evelyn
   const [showAllTeam, setShowAllTeam] = useState(false);
 
   // Drag & drop state
@@ -43,6 +62,23 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  // Persist users
+  useEffect(() => {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  }, [users]);
+
+  // Keep activePerson in sync
+  useEffect(() => {
+    const found = users.find(u => u.id === activePerson.id);
+    if (found) {
+      if (found.name !== activePerson.name || found.avatarColor !== activePerson.avatarColor) {
+        setActivePerson(found);
+      }
+    } else {
+      setActivePerson(users[0] || DEFAULT_USERS[0]);
+    }
+  }, [users, activePerson]);
+
   // Load initial tasks from localStorage or API
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -50,7 +86,9 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setTasks(parsed);
+          // Guarantee all initial tasks are assigned to User 1
+          const sanitized = parsed.map(t => ({ ...t, userId: 1 }));
+          setTasks(sanitized);
           setIsLoading(false);
           return;
         }
@@ -61,7 +99,7 @@ export default function App() {
     loadFromApi();
   }, []);
 
-  // Save to localStorage
+  // Save tasks to localStorage
   useEffect(() => {
     if (!isLoading) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
@@ -71,17 +109,65 @@ export default function App() {
   const loadFromApi = async () => {
     setIsLoading(true);
     const data = await fetchTodosFromApi();
-    setTasks(data);
+    // All tasks belong strictly to User 1
+    const user1Tasks = data.map(t => ({ ...t, userId: 1 }));
+    setTasks(user1Tasks);
     setIsLoading(false);
-    showToast(`Loaded ${data.length} tasks from API`, 'info');
+    showToast(`Loaded ${user1Tasks.length} tasks for User 1`, 'info');
   };
 
-  // Filter tasks to the active person
+  // Add new user function - adds user without auto-generating tasks (all tasks remain for User 1)
+  const handleAddUser = (customName, customColor) => {
+    const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
+    const finalName = customName?.trim() || `User ${nextId}`;
+    const newUser = {
+      id: nextId,
+      name: finalName,
+      role: `Workspace ${nextId}`,
+      avatarColor: customColor || AVATAR_COLORS[(nextId - 1) % AVATAR_COLORS.length]
+    };
+
+    setUsers(prev => [...prev, newUser]);
+    setActivePerson(newUser);
+    setShowAllTeam(false);
+    showToast(`Added ${newUser.name}! Switched to their workspace.`);
+  };
+
+  // Rename an existing user
+  const handleRenameUser = (userId, newName) => {
+    setUsers(prev =>
+      prev.map(u => (u.id === userId ? { ...u, name: newName } : u))
+    );
+    showToast(`Renamed to "${newName}"`);
+  };
+
+  // Delete a user (and reassign their tasks to the remaining primary user)
+  const handleDeleteUser = (userId) => {
+    if (users.length <= 1) {
+      showToast('Cannot delete the only remaining user', 'info');
+      return;
+    }
+    const remainingUsers = users.filter(u => u.id !== userId);
+    const targetFallbackUser = remainingUsers[0];
+
+    // Reassign deleted user's tasks
+    setTasks(prev =>
+      prev.map(t => (t.userId === userId ? { ...t, userId: targetFallbackUser.id } : t))
+    );
+
+    setUsers(remainingUsers);
+    if (activePerson.id === userId) {
+      setActivePerson(targetFallbackUser);
+    }
+    showToast(`User deleted. Tasks moved to ${targetFallbackUser.name}.`);
+  };
+
+  // Filter tasks to the active user
   const personTasks = useMemo(() => {
     return tasks.filter(t => t.userId === activePerson.id);
   }, [tasks, activePerson]);
 
-  // Tasks to display: single person view (curated 4 to 6 tasks per category) vs all team view (all tasks)
+  // Tasks to display: single user view vs all tasks view + search filter
   const displayedTasks = useMemo(() => {
     let list = showAllTeam ? tasks : personTasks;
 
@@ -127,7 +213,7 @@ export default function App() {
           return {
             ...task,
             column: targetColumnId,
-            completed: targetColumnId === 'completed'
+            completed: targetColumnId === 'completed' ? true : task.completed
           };
         }
         return task;
@@ -139,7 +225,7 @@ export default function App() {
     setDraggedTaskId(null);
   };
 
-  // Toggle checkbox completion in place so column progress updates dynamically
+  // Toggle checkbox completion in place
   const handleToggleComplete = (taskId) => {
     setTasks(prev =>
       prev.map(task => {
@@ -163,7 +249,7 @@ export default function App() {
           return {
             ...task,
             column: nextColumnId,
-            completed: nextColumnId === 'completed'
+            completed: nextColumnId === 'completed' ? true : task.completed
           };
         }
         return task;
@@ -196,7 +282,7 @@ export default function App() {
       const newTask = {
         ...taskData,
         id: newId,
-        userId: activePerson.id
+        userId: taskData.userId || activePerson.id
       };
       setTasks(prev => [newTask, ...prev]);
       showToast('Task created');
@@ -226,16 +312,24 @@ export default function App() {
     }
   };
 
+  // Overall workspace completion stats
+  const activeTasksList = showAllTeam ? tasks : personTasks;
+  const activeCompletedCount = activeTasksList.filter(t => t.completed).length;
+  const activePercent = activeTasksList.length > 0 ? Math.round((activeCompletedCount / activeTasksList.length) * 100) : 0;
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#282F1B] flex flex-col antialiased">
-      {/* Single, Beautiful Header */}
+      {/* Header with User 1, User Selector, + User button */}
       <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         activePerson={activePerson}
         onSelectPerson={setActivePerson}
-        personTasks={personTasks}
-        allTasksCount={tasks.length}
+        users={users}
+        onAddUser={handleAddUser}
+        onRenameUser={handleRenameUser}
+        onDeleteUser={handleDeleteUser}
+        tasks={tasks}
         showAllTeam={showAllTeam}
         onToggleShowAllTeam={setShowAllTeam}
         onOpenNewTask={() => handleOpenNewTask('todo')}
@@ -245,11 +339,52 @@ export default function App() {
 
       {/* Main Kanban Columns */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        
+        {/* Workspace Sub-header */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 bg-white/70 backdrop-blur-xs px-4 py-2.5 rounded-2xl border border-[#EDE6DC] shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-3 h-3 rounded-full shrink-0"
+              style={{ backgroundColor: showAllTeam ? '#838F58' : activePerson.avatarColor || '#838F58' }}
+            />
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-sm sm:text-base font-editorial font-bold text-[#282F1B] italic">
+                {showAllTeam ? 'All Workspaces (All Tasks)' : `${activePerson.name}'s To-Do Board`}
+              </h1>
+              <span className="text-xs text-[#282F1B]/50 font-sans">
+                {activeCompletedCount} of {activeTasksList.length} completed ({activePercent}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!showAllTeam ? (
+              <button
+                type="button"
+                onClick={() => setShowAllTeam(true)}
+                className="text-xs text-[#838F58] hover:text-[#535E32] font-semibold hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>View all tasks</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAllTeam(false)}
+                className="text-xs text-[#838F58] hover:text-[#535E32] font-semibold hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Back to {activePerson.name}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         {isLoading ? (
           <div className="h-80 flex flex-col items-center justify-center gap-3">
             <RefreshCw className="w-8 h-8 text-[#838F58] animate-spin" />
             <p className="text-sm font-editorial italic font-bold text-[#282F1B]">
-              {showAllTeam ? 'Brewing all team tasks...' : `Brewing ${activePerson.name}'s tasks...`}
+              {showAllTeam ? 'Brewing all tasks...' : `Brewing ${activePerson.name}'s tasks...`}
             </p>
           </div>
         ) : (
@@ -272,6 +407,7 @@ export default function App() {
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   showAllTeam={showAllTeam}
+                  users={users}
                 />
               );
             })}
@@ -302,7 +438,7 @@ export default function App() {
               onClick={() => setShowAllTeam(!showAllTeam)}
               className="hover:text-[#F9D1D9] transition-colors cursor-pointer font-medium truncate"
             >
-              {showAllTeam ? 'All Team Tasks' : `${activePerson.name}'s Routine`}
+              {showAllTeam ? 'All Tasks' : `${activePerson.name}'s Workspace`}
             </button>
             <span className="text-[#F9D1D9]/60">&bull;</span>
             <span className="text-[#F9D1D9] font-medium truncate">
@@ -316,7 +452,7 @@ export default function App() {
               type="button"
               onClick={loadFromApi}
               className="hover:text-[#F9D1D9] transition-colors cursor-pointer hidden md:inline text-xs"
-              title="Reload DummyJSON tasks"
+              title="Reload tasks"
             >
               Reload API
             </button>
@@ -339,6 +475,7 @@ export default function App() {
         initialData={editingTask}
         defaultColumn={defaultColumnForNew}
         defaultUserId={activePerson.id}
+        users={users}
       />
 
       <DeleteConfirmModal

@@ -1,33 +1,40 @@
 /**
- * Team roster for personal to-do boards
+ * Dynamic users roster for personal to-do boards
+ * Defaults to User 1 with the ability to add users dynamically
  */
-export const PEOPLE = [
-  { id: 1, name: 'Evelyn Reed', role: 'Product Lead', avatarColor: '#B46A72' },
-  { id: 2, name: 'Marcus Vance', role: 'UI Architect', avatarColor: '#2D3A47' },
-  { id: 3, name: 'Aria Montgomery', role: 'Frontend Engineer', avatarColor: '#A8B58A' },
-  { id: 4, name: 'Julian Hayes', role: 'Backend Developer', avatarColor: '#A9B7C6' },
-  { id: 5, name: 'Chloe Bennett', role: 'Content Strategist', avatarColor: '#B46A72' },
+export const DEFAULT_USERS = [
+  { id: 1, name: 'User 1', role: 'Workspace 1', avatarColor: '#838F58' },
 ];
 
-export const USERS_MAP = PEOPLE.reduce((acc, user) => {
-  acc[user.id] = user;
-  return acc;
-}, {});
+export const AVATAR_COLORS = [
+  '#838F58', // Matcha
+  '#C96B7F', // Strawberry
+  '#A8B58A', // Sage
+  '#B46A72', // Rosewood
+  '#535E32', // Deep Matcha
+  '#8E364A', // Deep Berry
+];
 
-export function getUserInfo(userId) {
-  if (USERS_MAP[userId]) {
-    return USERS_MAP[userId];
-  }
+export function getUserInfo(userId, customUsers = null) {
+  const list = customUsers || DEFAULT_USERS;
+  const found = list.find(u => u.id === Number(userId));
+  if (found) return found;
+
+  const num = Number(userId) || 1;
   return {
-    id: userId,
-    name: `User ${userId}`,
-    role: 'Team Member',
-    avatarColor: '#2D3A47'
+    id: num,
+    name: `User ${num}`,
+    role: `Workspace ${num}`,
+    avatarColor: AVATAR_COLORS[(num - 1) % AVATAR_COLORS.length]
   };
 }
 
 export function getInitials(name) {
-  if (!name) return 'U';
+  if (!name) return 'U1';
+  const match = name.trim().match(/^User\s*(\d+)$/i);
+  if (match) {
+    return `U${match[1]}`;
+  }
   const parts = name.trim().split(' ');
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();

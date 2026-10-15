@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
-import { USERS_MAP, getUserInfo } from '../data/mockUsers.js';
 
 export default function TaskModal({
   isOpen,
@@ -8,7 +7,8 @@ export default function TaskModal({
   onSave,
   initialData = null,
   defaultColumn = 'todo',
-  defaultUserId = 1
+  defaultUserId = 1,
+  users = []
 }) {
   const [todo, setTodo] = useState('');
   const [column, setColumn] = useState('todo');
@@ -98,7 +98,7 @@ export default function TaskModal({
                 setTodo(e.target.value);
                 if (error) setError('');
               }}
-              placeholder="e.g. Sip strawberry matcha latte and review design layout..."
+              placeholder="e.g. Complete review for current milestone..."
               className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF7F2] border border-[#EDE6DC] text-sm text-[#282F1B] placeholder-[#282F1B]/40 focus:outline-none focus:ring-2 focus:ring-[#838F58]/20 focus:border-[#838F58] focus:bg-white transition-all resize-none"
               autoFocus
             />
@@ -140,18 +140,39 @@ export default function TaskModal({
             </div>
           </div>
 
+          {/* User Assignee Selector */}
+          {users.length > 1 && (
+            <div>
+              <label htmlFor="task-assignee" className="block text-xs font-bold text-[#282F1B] uppercase tracking-wider mb-1.5">
+                Assign To User
+              </label>
+              <select
+                id="task-assignee"
+                value={userId}
+                onChange={(e) => setUserId(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl bg-[#FAF7F2] border border-[#EDE6DC] text-xs font-medium text-[#282F1B] focus:outline-none focus:ring-2 focus:ring-[#838F58]/20 focus:border-[#838F58]"
+              >
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-[#EDE6DC]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full border border-[#EDE6DC] text-xs font-semibold text-[#282F1B]/80 hover:bg-[#FAF7F2] transition-colors"
+              className="px-4 py-2 rounded-full border border-[#EDE6DC] text-xs font-semibold text-[#282F1B]/80 hover:bg-[#FAF7F2] transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-full bg-[#838F58] hover:bg-[#535E32] text-[#F9D1D9] text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              className="px-5 py-2 rounded-full bg-[#838F58] hover:bg-[#535E32] text-[#F9D1D9] text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
               <Check className="w-4 h-4" />
               <span>{isEditing ? 'Save Changes' : 'Create Task'}</span>
