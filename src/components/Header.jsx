@@ -227,26 +227,24 @@ export default function Header({
                               <button
                                 type="button"
                                 onClick={(e) => handleStartRename(person, e)}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-[#838F58] hover:bg-white rounded transition-opacity"
+                                className="p-1 text-[#282F1B]/40 hover:text-[#838F58] hover:bg-white rounded transition-colors"
                                 title="Rename user"
                               >
                                 <Edit2 className="w-3 h-3" />
                               </button>
 
-                              {/* Delete User Button (only if > 1 user) */}
+                              {/* Delete User Button (with all tasks) */}
                               {users.length > 1 && onDeleteUser && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (window.confirm(`Delete ${person.name} and reassign their tasks to User 1?`)) {
-                                      onDeleteUser(person.id);
-                                    }
+                                    onDeleteUser(person);
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-[#8E364A] hover:bg-white rounded transition-opacity"
-                                  title="Delete user"
+                                  className="p-1 text-[#8E364A]/70 hover:text-[#8E364A] hover:bg-[#FDF2F4] rounded transition-colors cursor-pointer"
+                                  title={`Delete ${person.name} and all tasks`}
                                 >
-                                  <Trash2 className="w-3 h-3" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
                             </div>

@@ -7,7 +7,7 @@ import Toast from './components/Toast.jsx';
 import { COLUMNS } from './constants/palette.js';
 import { DEFAULT_USERS, AVATAR_COLORS } from './data/mockUsers.js';
 import { fetchTodosFromApi } from './utils/api.js';
-import { RefreshCw, UserCheck, Layers } from 'lucide-react';
+import { RefreshCw, UserCheck, Layers, Trash2 } from 'lucide-react';
 
 const STORAGE_KEY = 'strawberry_matcha_tasks_v15';
 const USERS_STORAGE_KEY = 'strawberry_matcha_users_v4';
@@ -45,6 +45,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [defaultColumnForNew, setDefaultColumnForNew] = useState('todo');
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   // Toast & Undo
   const [toast, setToast] = useState(null);
@@ -86,8 +87,8 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Guarantee all initial tasks are assigned to User 1
-          const sanitized = parsed.map(t => ({ ...t, userId: 1 }));
+          // Keep assigned user IDs (fallback to User 1)
+          const sanitized = parsed.map(t => ({ ...t, userId: t.userId || 1 }));
           setTasks(sanitized);
           setIsLoading(false);
           return;
@@ -141,25 +142,45 @@ export default function App() {
     showToast(`Renamed to "${newName}"`);
   };
 
-  // Delete a user (and reassign their tasks to the remaining primary user)
-  const handleDeleteUser = (userId) => {
+  // Trigger delete user flow
+  const handleDeleteUser = (userOrId) => {
     if (users.length <= 1) {
       showToast('Cannot delete the only remaining user', 'info');
       return;
     }
+    const target = typeof userOrId === 'object' ? userOrId : users.find(u => u.id === userOrId);
+    if (target) {
+      setUserToDelete(target);
+    }
+  };
+
+  // Confirm delete user AND delete all their tasks
+  const handleConfirmDeleteUser = (userId) => {
+    if (users.length <= 1) {
+      showToast('Cannot delete the only remaining user', 'info');
+      setUserToDelete(null);
+      return;
+    }
+
+    const userObj = users.find(u => u.id === userId);
     const remainingUsers = users.filter(u => u.id !== userId);
     const targetFallbackUser = remainingUsers[0];
 
-    // Reassign deleted user's tasks
-    setTasks(prev =>
-      prev.map(t => (t.userId === userId ? { ...t, userId: targetFallbackUser.id } : t))
-    );
+    const tasksCount = tasks.filter(t => t.userId === userId).length;
 
+    // Permanently remove all tasks belonging to this deleted user
+    setTasks(prev => prev.filter(t => t.userId !== userId));
+
+    // Remove user
     setUsers(remainingUsers);
+
+    // Switch active workspace if deleted user was active
     if (activePerson.id === userId) {
       setActivePerson(targetFallbackUser);
     }
-    showToast(`User deleted. Tasks moved to ${targetFallbackUser.name}.`);
+
+    setUserToDelete(null);
+    showToast(`Deleted ${userObj ? userObj.name : 'user'} and all ${tasksCount} tasks.`, 'info');
   };
 
   // Filter tasks to the active user
@@ -355,6 +376,18 @@ export default function App() {
                 {activeCompletedCount} of {activeTasksList.length} completed ({activePercent}%)
               </span>
             </div>
+
+            {/* Bin next to user name on the board */}
+            {!showAllTeam && users.length > 1 && (
+              <button
+                type="button"
+                onClick={() => handleDeleteUser(activePerson)}
+                className="p-1 text-[#8E364A]/60 hover:text-[#8E364A] hover:bg-[#FDF2F4] rounded-lg transition-colors cursor-pointer"
+                title={`Delete ${activePerson.name} and all their tasks`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -490,6 +523,53 @@ export default function App() {
         onClose={() => setToast(null)}
         onUndo={handleUndoDelete}
       />
+
+      {/* Delete User & All Tasks Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div 
+            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-[#EDE6DC] overflow-hidden p-6"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-[#FDF2F4] text-[#8E364A] flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-editorial font-bold text-[#282F1B] italic">
+                  Delete {userToDelete.name}?
+                </h3>
+                <p className="text-xs text-[#282F1B]/60">
+                  This user and all their tasks will be deleted.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#FDF2F4]/60 border border-[#F9D1D9] text-xs text-[#8E364A] font-medium mb-5">
+              Warning: All {tasks.filter(t => t.userId === userToDelete.id).length} task(s) belonging to {userToDelete.name} will be permanently removed.
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="px-4 py-2 rounded-full border border-[#EDE6DC] text-xs font-semibold text-[#282F1B]/80 hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmDeleteUser(userToDelete.id)}
+                className="px-4 py-2 rounded-full bg-[#8E364A] hover:bg-[#722B3B] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete User &amp; Tasks</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

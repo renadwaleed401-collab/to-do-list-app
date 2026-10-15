@@ -13,7 +13,6 @@ export default function TaskModal({
   const [todo, setTodo] = useState('');
   const [column, setColumn] = useState('todo');
   const [userId, setUserId] = useState(defaultUserId);
-  const [priority, setPriority] = useState('medium');
   const [error, setError] = useState('');
 
   const isEditing = Boolean(initialData && initialData.id);
@@ -23,12 +22,10 @@ export default function TaskModal({
       setTodo(initialData.todo || '');
       setColumn(initialData.column || 'todo');
       setUserId(initialData.userId || defaultUserId);
-      setPriority(initialData.priority || 'medium');
     } else {
       setTodo('');
       setColumn(defaultColumn || 'todo');
       setUserId(defaultUserId);
-      setPriority('medium');
     }
     setError('');
   }, [initialData, defaultColumn, defaultUserId, isOpen]);
@@ -48,7 +45,6 @@ export default function TaskModal({
       column,
       completed: column === 'completed',
       userId: Number(userId),
-      priority,
       createdAt: initialData?.createdAt || new Date().toISOString().split('T')[0]
     });
 
@@ -122,44 +118,27 @@ export default function TaskModal({
               </select>
             </div>
 
-            {/* Priority Selector */}
-            <div>
-              <label htmlFor="task-priority" className="block text-xs font-bold text-[#282F1B] uppercase tracking-wider mb-1.5">
-                Priority
-              </label>
-              <select
-                id="task-priority"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#FAF7F2] border border-[#EDE6DC] text-xs font-medium text-[#282F1B] focus:outline-none focus:ring-2 focus:ring-[#838F58]/20 focus:border-[#838F58]"
-              >
-                <option value="low">Low Priority</option>
-                <option value="medium">Medium Priority</option>
-                <option value="high">High Priority</option>
-              </select>
-            </div>
+            {/* User Assignee Selector */}
+            {users?.length > 0 && (
+              <div>
+                <label htmlFor="task-assignee" className="block text-xs font-bold text-[#282F1B] uppercase tracking-wider mb-1.5">
+                  Assign To User
+                </label>
+                <select
+                  id="task-assignee"
+                  value={userId}
+                  onChange={(e) => setUserId(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl bg-[#FAF7F2] border border-[#EDE6DC] text-xs font-medium text-[#282F1B] focus:outline-none focus:ring-2 focus:ring-[#838F58]/20 focus:border-[#838F58]"
+                >
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-
-          {/* User Assignee Selector */}
-          {users.length > 1 && (
-            <div>
-              <label htmlFor="task-assignee" className="block text-xs font-bold text-[#282F1B] uppercase tracking-wider mb-1.5">
-                Assign To User
-              </label>
-              <select
-                id="task-assignee"
-                value={userId}
-                onChange={(e) => setUserId(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl bg-[#FAF7F2] border border-[#EDE6DC] text-xs font-medium text-[#282F1B] focus:outline-none focus:ring-2 focus:ring-[#838F58]/20 focus:border-[#838F58]"
-              >
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-[#EDE6DC]">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Trash2, Edit3, ChevronDown } from 'lucide-react';
 import { COLUMNS } from '../constants/palette.js';
-import { getUserInfo } from '../data/mockUsers.js';
+import { getUserInfo, getInitials } from '../data/mockUsers.js';
 
 export default function TaskCard({
   task,
@@ -12,7 +12,8 @@ export default function TaskCard({
   onDragStart,
   onDragEnd,
   isDragging,
-  showAllTeam = false
+  showAllTeam = false,
+  users = null
 }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [isEditingInline, setIsEditingInline] = useState(false);
@@ -35,7 +36,7 @@ export default function TaskCard({
   };
 
   const currentCol = COLUMNS.find(c => c.id === task.column) || COLUMNS[0];
-  const assignedUser = getUserInfo(task.userId);
+  const assignedUser = getUserInfo(task.userId, users);
 
   return (
     <div
@@ -151,19 +152,17 @@ export default function TaskCard({
                 )}
               </div>
 
-              {/* Assignee chip when viewing all team tasks */}
+              {/* Assignee badge with user name and color in all tasks view */}
               {showAllTeam && (
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FAF7F2] text-[#282F1B]/70 border border-[#EDE6DC]"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FAF7F2] text-[#282F1B] border border-[#EDE6DC] shadow-2xs"
                   title={`Assigned to ${assignedUser.name}`}
                 >
                   <span
-                    className="w-3.5 h-3.5 rounded-full text-white text-[8px] flex items-center justify-center font-bold"
-                    style={{ backgroundColor: task.userId % 2 === 1 ? '#838F58' : '#C96B7F' }}
-                  >
-                    {assignedUser.name[0]}
-                  </span>
-                  <span>{assignedUser.name.split(' ')[0]}</span>
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: assignedUser.avatarColor || '#838F58' }}
+                  />
+                  <span>{assignedUser.name}</span>
                 </span>
               )}
             </div>
